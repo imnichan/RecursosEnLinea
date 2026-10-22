@@ -27,7 +27,8 @@ fun ResourceApp(viewModel: ResourceViewModel = viewModel()) {
         onAcademicToggled = viewModel::onAcademicToggled,
         onToggleSaveResource = viewModel::onToggleSaveResource,
         onTextChanged = viewModel::onTextChanged,
-        onUpdateMsn = viewModel::onUpdateMsn
+        onUpdateMsn = viewModel::onUpdateMsn,
+        onResetFilters = viewModel::onResetFilters
     )
 }
 
@@ -41,7 +42,8 @@ fun ResourceScreenContent(
     onAcademicToggled: (Boolean) -> Unit,
     onToggleSaveResource: (Int) -> Unit,
     onTextChanged: (String) -> Unit,
-    onUpdateMsn: () -> Unit
+    onUpdateMsn: () -> Unit,
+    onResetFilters: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -129,6 +131,20 @@ fun ResourceScreenContent(
                 }
             }
 
+            val hasActiveFilters = uiState.searchQuery.isNotEmpty() ||
+                uiState.selectedCategory != "Todas" ||
+                uiState.maxReadTime < 30 ||
+                uiState.onlyAcademic
+
+            if (hasActiveFilters) {
+                OutlinedButton(
+                    onClick = onResetFilters,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Limpiar / Restablecer Filtros")
+                }
+            }
+
             HorizontalDivider()
 
             Text(
@@ -136,12 +152,39 @@ fun ResourceScreenContent(
                 style = MaterialTheme.typography.titleMedium
             )
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(uiState.filteredResources, key = { it.id }) { resource ->
-                    ResourceCard(
-                        resource = resource,
-                        onToggleSave = { onToggleSaveResource(resource.id) }
-                    )
+            if (uiState.filteredResources.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "No se encontraron recursos con los filtros seleccionados.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        TextButton(onClick = onResetFilters) {
+                            Text("Restablecer filtros")
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(uiState.filteredResources, key = { it.id }) { resource ->
+                        ResourceCard(
+                            resource = resource,
+                            onToggleSave = { onToggleSaveResource(resource.id) }
+                        )
+                    }
                 }
             }
         }

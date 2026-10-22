@@ -1,27 +1,34 @@
 package com.example.recursosconfiables.ui
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.recursosconfiables.Resource
 import com.example.recursosconfiables.ResourceUiState
+import com.example.recursosconfiables.data.ResourceLocalDataSource
+import com.example.recursosconfiables.data.ResourceRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-class ResourceViewModel : ViewModel() {
+class ResourceViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val _uiState = MutableStateFlow(
-        ResourceUiState(
-            allResources = listOf(
-                Resource(1, "Cálculo Multivariable", "Matemáticas", "https://example.com/1", 15, true),
-                Resource(2, "Historia Universal", "Historia", "https://example.com/2", 20, false),
-                Resource(3, "Introducción a la Filosofía", "Filosofía", "https://example.com/3", 10, true),
-                Resource(4, "Física Cuántica Básica", "Ciencias", "https://example.com/4", 25, true),
-                Resource(5, "Álgebra Lineal", "Matemáticas", "https://example.com/5", 8, false)
-            )
-        )
-    )
+    private val repository = ResourceRepositoryImpl(ResourceLocalDataSource(application))
+
+    private val _uiState = MutableStateFlow(ResourceUiState())
     val uiState: StateFlow<ResourceUiState> = _uiState.asStateFlow()
+
+    init {
+        repository.resourcesFlow
+            .onEach { resources ->
+                _uiState.update { it.copy(allResources = resources) }
+            }
+            .launchIn(viewModelScope)
+    }
 
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
@@ -39,16 +46,20 @@ class ResourceViewModel : ViewModel() {
         _uiState.update { it.copy(onlyAcademic = onlyAcademic) }
     }
 
+    fun onResetFilters() {
+        _uiState.update {
+            it.copy(
+                searchQuery = "",
+                selectedCategory = "Todas",
+                maxReadTime = 30,
+                onlyAcademic = false
+            )
+        }
+    }
+
     fun onToggleSaveResource(resourceId: Int) {
-        _uiState.update { currentState ->
-            val updatedResources = currentState.allResources.map { resource ->
-                if (resource.id == resourceId) {
-                    resource.copy(isSaved = !resource.isSaved)
-                } else {
-                    resource
-                }
-            }
-            currentState.copy(allResources = updatedResources)
+        viewModelScope.launch {
+            repository.toggleSaveResource(resourceId)
         }
     }
 
